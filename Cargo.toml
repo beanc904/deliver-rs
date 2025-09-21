@@ -1,6 +1,6 @@
 [package]
 name = "deliver"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["coffeebean <beanc904@outlook.com>"]
 description = "This is a mini p2p file transfer application written in Rust."
