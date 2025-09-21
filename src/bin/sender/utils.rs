@@ -104,6 +104,14 @@ pub fn tcp_sender(file_path: &str, ip_addr: &str) -> anyhow::Result<()> {
     pb.finish_with_message("Send complete");
     // ANCHOR_END: send file content
 
-    println!("Sent file: {} ({} bytes)", file_name, file_size);
+    if file_name.ends_with(".uzip") {
+        println!(
+            "Sent dir: {} ({} bytes)",
+            file_name.trim_end_matches(".uzip"),
+            file_size
+        );
+    } else {
+        println!("Sent file: {} ({} bytes)", file_name, file_size);
+    }
     Ok(())
 }

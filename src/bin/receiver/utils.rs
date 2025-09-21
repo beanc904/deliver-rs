@@ -83,15 +83,20 @@ pub async fn tcp_listener(ip_addr: &str) -> anyhow::Result<()> {
 use std::fs::File;
 use std::io::Write;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
 use sha2::{Digest, Sha256};
 use tokio::io::AsyncReadExt;
 use tokio::net::{TcpListener, TcpStream};
+use zip_extensions::*;
 
 async fn handle_client(mut stream: TcpStream, addr: SocketAddr) -> anyhow::Result<()> {
     println!("Client connected: {}\r", addr);
+
+    let mut is_file = true;
+    let name: &str;
 
     // ANCHOR: receive file name length, name, size, and checksum
     let mut len_buf = [0u8; 2];
@@ -110,7 +115,16 @@ async fn handle_client(mut stream: TcpStream, addr: SocketAddr) -> anyhow::Resul
     stream.read_exact(&mut checksum_buf).await?;
     // ANCHOR_END: receive file name length, name, size, and checksum
 
-    println!("Receiving file: {} ({} bytes)\r", file_name, file_size);
+    // ANCHOR: display file info
+    if file_name.ends_with(".uzip") {
+        is_file = false;
+        name = file_name.trim_end_matches(".uzip");
+        println!("Receiving dir: {} ({} bytes)\r", name, file_size);
+    } else {
+        name = &file_name;
+        println!("Receiving file: {} ({} bytes)\r", file_name, file_size);
+    }
+    // ANCHOR_END: display file info
 
     // ANCHOR: receive file content with progress bar
     let mut file = File::create(&file_name)?;
@@ -124,7 +138,7 @@ async fn handle_client(mut stream: TcpStream, addr: SocketAddr) -> anyhow::Resul
             .unwrap()
             .progress_chars("=>-"),
     );
-    pb.set_message(format!("Receiving {}", file_name));
+    pb.set_message(format!("Receiving {}", name));
 
     let mut hasher = Sha256::new();
 
@@ -142,15 +156,33 @@ async fn handle_client(mut stream: TcpStream, addr: SocketAddr) -> anyhow::Resul
     pb.finish_with_message("Receive complete");
     // ANCHOR_END: receive file content with progress bar
 
-    // ANCHOR: verify checksum
+    // ANCHOR: verify checksum and cleanup
     let calculated_checksum = hasher.finalize();
-    if calculated_checksum.as_slice() == checksum_buf {
-        let res = format!("File {} received successfully. Checksum OK.", file_name);
-        println!("{}\r", style(res).green());
+    if is_file {
+        if calculated_checksum.as_slice() == checksum_buf {
+            let res = format!("File {} received successfully. Checksum OK.", file_name);
+            println!("{}\r", style(res).green());
+        } else {
+            println!("File {} received, but checksum mismatch!\r", file_name);
+        }
     } else {
-        println!("File {} received, but checksum mismatch!\r", file_name);
+        if calculated_checksum.as_slice() == checksum_buf {
+            let res = format!("Directory {} received successfully. Checksum OK.", name);
+            println!("{}\r", style(res).green());
+            // Unzip the received .uzip file
+            let archive_file = PathBuf::from(&file_name);
+            let target_dir = PathBuf::from(name);
+            zip_extract(&archive_file, &target_dir)?;
+
+            log::info!("Extracted archive {} to directory {}", file_name, name);
+
+            // Remove the .uzip file after extraction
+            std::fs::remove_file(&file_name)?;
+        } else {
+            println!("Directory {} received, but checksum mismatch!\r", name);
+        }
     }
-    // ANCHOR_END: verify checksum
+    // ANCHOR_END: verify checksum and cleanup
 
     Ok(())
 }

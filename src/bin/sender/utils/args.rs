@@ -3,7 +3,7 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(version, author, about, long_about = None)]
 pub struct Args {
-    /// The file to send
+    /// The file(include file and directory) to send
     #[arg(short, long)]
     pub file: String,
 
