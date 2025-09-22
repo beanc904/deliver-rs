@@ -26,15 +26,15 @@ async fn main() -> anyhow::Result<()> {
     println!("{}", style("Starting server...".to_string()).bold().blue());
 
     // ANCHOR: cfg info
-    let ip_addr = format!("0.0.0.0:{}", args.port);
-    let port = args.port;
+    let args_port = args.port;
+    let ip_addr = format!("0.0.0.0:{}", args_port);
     // ANCHOR_END: cfg info
 
     show_ipv4();
 
     println!(
         "Server listening on port {}... (press 'q' to quit)",
-        style(port).bold().green()
+        style(args_port).bold().green()
     );
 
     tcp_listener(&ip_addr).await

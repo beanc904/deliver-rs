@@ -4,8 +4,23 @@ use std::fs;
 use dialoguer::Select;
 use serde::{Deserialize, Serialize};
 
-use deliver::get_cache_dir;
+use deliver::pkg_info::PkgInfo;
 
+/// A cache for storing the last 5 used IP addresses.
+/// The cache is stored in a JSON file in the cache directory.
+/// The most recently used address is at the back of the deque.
+/// When adding a new address, if it already exists, it is moved to the back.
+/// If the cache is full, the oldest address (front) is removed.
+/// The cache is loaded from the file when the program starts and saved to the file when the program exits.
+/// The user can select a previously used address from a list or enter a new one.
+/// The cache is limited to 5 addresses.
+/// # Example
+/// ```
+/// let mut cache = AddrCache::load();
+/// cache.load();
+/// cache.add_addr("127.0.0.1:9000".to_string());
+/// cache.save();
+/// ```
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AddrCache {
     history: VecDeque<String>,
@@ -19,7 +34,7 @@ impl AddrCache {
     }
 
     pub fn load() -> Self {
-        let mut path = get_cache_dir();
+        let mut path = PkgInfo::new().get_cache_dir();
         path.push("addr_cache.json");
 
         log::debug!("Loading address cache from {:?}", path);
@@ -32,7 +47,7 @@ impl AddrCache {
     }
 
     pub fn save(&self) {
-        let mut path = get_cache_dir();
+        let mut path = PkgInfo::new().get_cache_dir();
 
         // create the directory if it does not exist
         if let Err(e) = fs::create_dir_all(&path) {
@@ -53,9 +68,11 @@ impl AddrCache {
     /// Add an IP address to the history.
     /// If the IP address already exists, move it to the most recent position.
     /// If the history is full (5 addresses), remove the oldest one.
-    pub fn add_addr(&mut self, ip: String) {
+    /// # Arguments
+    /// * `addr` - The IP address to add. (due to consumer requirement, it is a String)
+    pub fn add_addr(&mut self, addr: String) {
         // Remove if already exists
-        if let Some(pos) = self.history.iter().position(|x| *x == ip) {
+        if let Some(pos) = self.history.iter().position(|x| *x == addr) {
             self.history.remove(pos);
         }
 
@@ -64,7 +81,7 @@ impl AddrCache {
             self.history.pop_front();
         }
 
-        self.history.push_back(ip);
+        self.history.push_back(addr);
     }
 
     pub fn select_addr(&mut self) -> Option<String> {

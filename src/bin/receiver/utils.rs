@@ -1,3 +1,5 @@
+/// It will show the server's IPv4 address.
+/// Including vurtual interfaces and physical interfaces.
 pub fn show_ipv4() {
     // ANCHOR: show the server's IP address
     match if_addrs::get_if_addrs() {
@@ -27,6 +29,12 @@ use crossterm::event::{self, Event, KeyCode};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use tokio::time::{Duration, sleep};
 
+/// TCP listener that handles incoming connections and allows quitting with 'q'
+/// It will save the file in the work dir.
+/// # Arguments
+/// - `ip_addr`: A string slice that holds the IP address and port of the server.
+/// # Returns
+/// An `anyhow::Result<()>` indicating success or failure.
 pub async fn tcp_listener(ip_addr: &str) -> anyhow::Result<()> {
     let listener = TcpListener::bind(ip_addr).await?;
 
@@ -95,9 +103,6 @@ use zip_extensions::*;
 async fn handle_client(mut stream: TcpStream, addr: SocketAddr) -> anyhow::Result<()> {
     println!("Client connected: {}\r", addr);
 
-    let mut is_file = true;
-    let name: &str;
-
     // ANCHOR: receive file name length, name, size, and checksum
     let mut len_buf = [0u8; 2];
     stream.read_exact(&mut len_buf).await?;
@@ -116,14 +121,11 @@ async fn handle_client(mut stream: TcpStream, addr: SocketAddr) -> anyhow::Resul
     // ANCHOR_END: receive file name length, name, size, and checksum
 
     // ANCHOR: display file info
-    if file_name.ends_with(".uzip") {
-        is_file = false;
-        name = file_name.trim_end_matches(".uzip");
-        println!("Receiving dir: {} ({} bytes)\r", name, file_size);
-    } else {
-        name = &file_name;
-        println!("Receiving file: {} ({} bytes)\r", file_name, file_size);
-    }
+    let (format_name, file_type) = match file_name.ends_with(".uzip") {
+        true => (file_name.trim_end_matches(".uzip"), "Directory"),
+        false => (file_name.as_str(), "File"),
+    };
+    println!("Receiving dir: {} ({} bytes)\r", format_name, file_size);
     // ANCHOR_END: display file info
 
     // ANCHOR: receive file content with progress bar
@@ -138,7 +140,7 @@ async fn handle_client(mut stream: TcpStream, addr: SocketAddr) -> anyhow::Resul
             .unwrap()
             .progress_chars("=>-"),
     );
-    pb.set_message(format!("Receiving {}", name));
+    pb.set_message(format!("Receiving {}", format_name));
 
     let mut hasher = Sha256::new();
 
@@ -158,29 +160,33 @@ async fn handle_client(mut stream: TcpStream, addr: SocketAddr) -> anyhow::Resul
 
     // ANCHOR: verify checksum and cleanup
     let calculated_checksum = hasher.finalize();
-    if is_file {
-        if calculated_checksum.as_slice() == checksum_buf {
-            let res = format!("File {} received successfully. Checksum OK.", file_name);
-            println!("{}\r", style(res).green());
-        } else {
-            println!("File {} received, but checksum mismatch!\r", file_name);
-        }
-    } else {
-        if calculated_checksum.as_slice() == checksum_buf {
-            let res = format!("Directory {} received successfully. Checksum OK.", name);
-            println!("{}\r", style(res).green());
+    if calculated_checksum.as_slice() == checksum_buf {
+        let res = format!(
+            "{} {} received successfully. Checksum OK.",
+            file_type, format_name
+        );
+        println!("{}\r", style(res).green());
+
+        if file_type == "Directory" {
             // Unzip the received .uzip file
             let archive_file = PathBuf::from(&file_name);
-            let target_dir = PathBuf::from(name);
+            let target_dir = PathBuf::from(format_name);
             zip_extract(&archive_file, &target_dir)?;
 
-            log::info!("Extracted archive {} to directory {}", file_name, name);
+            log::info!(
+                "Extracted archive {} to directory {}",
+                file_name,
+                format_name
+            );
 
             // Remove the .uzip file after extraction
             std::fs::remove_file(&file_name)?;
-        } else {
-            println!("Directory {} received, but checksum mismatch!\r", name);
         }
+    } else {
+        println!(
+            "{} {} received, but checksum mismatch!\r",
+            file_type, format_name
+        );
     }
     // ANCHOR_END: verify checksum and cleanup
 

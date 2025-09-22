@@ -7,6 +7,15 @@ use dialoguer::Input;
 use addr_cache::AddrCache;
 use args::Args;
 
+/// Get the IP address from command line arguments or cache.
+/// If not provided, prompt the user for input.
+/// # Returns
+/// A `String` representing the IP address and port in the format "{ip}:{port}".
+///
+/// # Example
+/// ```
+/// let ip_addr = get_addr_from_cache();
+/// ```
 pub fn get_addr_from_cache() -> String {
     let args = Args::parse();
     let mut cache = AddrCache::load();
@@ -46,15 +55,35 @@ use std::path::Path;
 use indicatif::{ProgressBar, ProgressStyle};
 use sha2::{Digest, Sha256};
 
-pub fn tcp_sender(file_path: &str, ip_addr: &str) -> anyhow::Result<()> {
-    let path = Path::new(&file_path);
-    let file_name = path.file_name().unwrap().to_str().unwrap().to_string();
-    let mut file = File::open(&file_path)?;
+/// Send a file to the specified IP address over TCP.
+/// Displays a progress bar during the transfer.
+/// # Arguments
+/// * `sender_target` - A Path ref that holds the path of the file to be sent.
+/// * `ip_addr` - A string slice that holds the IP address and port of the server.
+/// # Returns
+/// An `anyhow::Result<()>` indicating success or failure.
+/// # Example
+/// ```
+/// tcp_sender(Path::new("path/to/file.txt"), "192.168.172.58:9000")?;
+/// ```
+pub fn tcp_sender(sender_target: &Path, ip_addr: &str) -> anyhow::Result<()> {
+    let file_name = sender_target
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    // If the target is a directory (uzip), remove the .uzip extension for display
+    let format_name = match sender_target.is_dir() {
+        true => file_name.trim_end_matches(".uzip"),
+        false => &file_name,
+    };
+    let mut file = File::open(&sender_target)?;
     let file_size = file.metadata()?.len();
 
     // ANCHOR: calculate SHA256 of the file
     let mut hasher = Sha256::new();
-    let mut file_copy = File::open(&file_path)?;
+    let mut file_copy = File::open(&sender_target)?;
     let mut buf = [0u8; 8192];
     loop {
         let n = file_copy.read(&mut buf)?;
@@ -87,7 +116,7 @@ pub fn tcp_sender(file_path: &str, ip_addr: &str) -> anyhow::Result<()> {
             .unwrap()
             .progress_chars("=>-"),
     );
-    pb.set_message(format!("Sending {}", file_name));
+    pb.set_message(format!("Sending {}", format_name));
     // ANCHOR_END: send file content with progress bar
 
     // ANCHOR: send file content
@@ -104,14 +133,6 @@ pub fn tcp_sender(file_path: &str, ip_addr: &str) -> anyhow::Result<()> {
     pb.finish_with_message("Send complete");
     // ANCHOR_END: send file content
 
-    if file_name.ends_with(".uzip") {
-        println!(
-            "Sent dir: {} ({} bytes)",
-            file_name.trim_end_matches(".uzip"),
-            file_size
-        );
-    } else {
-        println!("Sent file: {} ({} bytes)", file_name, file_size);
-    }
+    println!("Sent file: {} ({} bytes)", format_name, file_size);
     Ok(())
 }
