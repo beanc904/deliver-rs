@@ -2,7 +2,7 @@
 
 This is a mini p2p file transfer application written in Rust.
 
-> **NOTE**
+> [!Important]
 >
 > It is driven by `tokio tcp`. Also, the receiver is acted as a server binded in default port `9000` to the sender.
 >
@@ -20,7 +20,7 @@ make install
 make install4user
 ```
 
-> **ATTENTION PLEASE**
+> [!CAUTION]
 >
 > Remember to add `/home/$USER/.local/bin` to `PATH`.
 
@@ -83,16 +83,39 @@ receiver = [
 # ...
 
 [open]
-prepend_rules = [
-  # Folder
-  { name = "*/", use = [ "edit", "open", "reveal", "sender", "receiver" ] },
-  # Fallback
-  { name = "*", use = [ "open", "reveal", "sender", "receiver" ] },
-  # your self config...
+rules = [
+	# Folder
+	{ name = "*/", use = [ "edit", "open", "reveal", "sender", "receiver" ] },
+	# Text
+	{ mime = "text/*", use = [ "edit", "reveal" ] },
+	# Image
+	{ mime = "image/*", use = [ "open", "reveal" ] },
+	# Media
+	{ mime = "{audio,video}/*", use = [ "play", "reveal" ] },
+	# Archive
+	{ mime = "application/{zip,rar,7z*,tar,gzip,xz,zstd,bzip*,lzma,compress,archive,cpio,arj,xar,ms-cab*}", use = [ "extract", "reveal" ] },
+	# JSON
+	{ mime = "application/{json,ndjson}", use = [ "edit", "reveal" ] },
+	{ mime = "*/javascript", use = [ "edit", "reveal" ] },
+	# Empty file
+	{ mime = "inode/empty", use = [ "edit", "reveal" ] },
+	# Fallback
+	{ name = "*", use = [ "open", "reveal", "sender", "receiver" ] },
 ]
+# prepend_rules = [
+#   # Folder
+#   { name = "*/", use = [ "edit", "open", "reveal", "sender", "receiver" ] },
+#   # Fallback
+#   { name = "*", use = [ "open", "reveal", "sender", "receiver" ] },
+#   # your self config...
+# ]
 # your self config...
 # ...
 ```
+
+> [!Important]
+> In `[open]`, you'd better choose the first writing.
+> I'm a bit ambigous to the `yazi-default.toml` stored in the [offical repository](https://github.com/sxyazi/yazi/blob/main/yazi-config/preset/yazi-default.toml).
 
 ### Effect
 
