@@ -2,7 +2,7 @@
 
 This is a mini p2p file transfer application written in Rust.
 
-> [!Important]
+> [!Note]
 >
 > It is driven by `tokio tcp`. Also, the receiver is acted as a server binded in default port `9000` to the sender.
 >
@@ -20,10 +20,11 @@ make install
 make install4user
 ```
 
-> [!CAUTION]
+> [!Important]
 >
 > Remember to add `/home/$USER/.local/bin` to `PATH`.
 
+> [!Note]
 > or if you just want to "touch" the wild baby - `firefly`, you can follow procedures below...
 >
 > ```bash
@@ -141,7 +142,9 @@ make uninstall4user
   - `unix`: `~/.cache/deliver/`
   - `windows`: `~/AppData/Local/deliver/`
 
-- `config`
+- `config`:
+  - `unix`: `~/.config/deliver/`
+  - `windows`: `~/AppData/Roaming/deliver/`
 
 # Others
 
