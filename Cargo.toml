@@ -1,6 +1,6 @@
 [package]
 name = "deliver"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 authors = ["coffeebean <beanc904@outlook.com>"]
 description = "This is a mini p2p file transfer application written in Rust."
@@ -21,3 +21,4 @@ anyhow = "1.0.99"
 crossterm = "0.29.0"
 zip = "3.0"
 zip-extensions = "0.8.3"
+toml = "0.9.7"

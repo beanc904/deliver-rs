@@ -6,6 +6,7 @@ use dialoguer::Input;
 
 use addr_cache::AddrCache;
 use args::Args;
+use deliver::cfg::Cfg;
 
 /// Get the IP address from command line arguments or cache.
 /// If not provided, prompt the user for input.
@@ -18,11 +19,15 @@ use args::Args;
 /// ```
 pub fn get_addr_from_cache() -> String {
     let args = Args::parse();
+    let port = args.port.unwrap_or_else(|| {
+        let cfg = Cfg::load();
+        cfg.get_port()
+    });
     let mut cache = AddrCache::load();
     let ip_addr = match args.ip {
         Some(ip) => {
             // If an IP address is provided, use it
-            let ip_addr = format!("{}:{}", ip, args.port);
+            let ip_addr = format!("{}:{}", ip, port);
             cache.add_addr(ip_addr.clone());
             ip_addr
         }
@@ -36,7 +41,7 @@ pub fn get_addr_from_cache() -> String {
                         .with_prompt("Enter server IP address")
                         .interact_text()
                         .unwrap();
-                    let ip_addr = format!("{}:{}", ip, args.port);
+                    let ip_addr = format!("{}:{}", ip, port);
                     cache.add_addr(ip_addr.clone());
                     ip_addr
                 }

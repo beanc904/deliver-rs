@@ -5,6 +5,7 @@ use dialoguer::Select;
 use serde::{Deserialize, Serialize};
 
 use deliver::pkg_info::PkgInfo;
+use deliver::cfg::Cfg;
 
 /// A cache for storing the last 5 used IP addresses.
 /// The cache is stored in a JSON file in the cache directory.
@@ -71,13 +72,16 @@ impl AddrCache {
     /// # Arguments
     /// * `addr` - The IP address to add. (due to consumer requirement, it is a String)
     pub fn add_addr(&mut self, addr: String) {
+        // Get the max history size from config
+        let max_history = Cfg::load().get_history_size();
+
         // Remove if already exists
         if let Some(pos) = self.history.iter().position(|x| *x == addr) {
             self.history.remove(pos);
         }
 
         // Remove the oldest if full
-        if self.history.len() == 5 {
+        if self.history.len() == max_history {
             self.history.pop_front();
         }
 
