@@ -1,4 +1,4 @@
-.PHONY: install uninstall install4user uninstall4user clean purge
+.PHONY: install uninstall install4user uninstall4user purge
 
 PREFIX ?= /usr/local
 BINDIR = $(PREFIX)/bin
