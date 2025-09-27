@@ -55,15 +55,18 @@ pub fn get_addr_from_cache() -> String {
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use indicatif::{ProgressBar, ProgressStyle};
 use sha2::{Digest, Sha256};
+use zip_extensions::*;
+
+use deliver::pkg_info::PkgInfo;
 
 /// Send a file to the specified IP address over TCP.
 /// Displays a progress bar during the transfer.
 /// # Arguments
-/// * `sender_target` - A Path ref that holds the path of the file to be sent.
+/// * `sender_target` - A Path ref that holds the path of the file/dir to be sent.
 /// * `ip_addr` - A string slice that holds the IP address and port of the server.
 /// # Returns
 /// An `anyhow::Result<()>` indicating success or failure.
@@ -72,6 +75,50 @@ use sha2::{Digest, Sha256};
 /// tcp_sender(Path::new("path/to/file.txt"), "192.168.172.58:9000")?;
 /// ```
 pub fn tcp_sender(sender_target: &Path, ip_addr: &str) -> anyhow::Result<()> {
+    // ANCHOR: judge the sender_target is file or dir
+    let file_type;
+    let sender_target: PathBuf = if !sender_target.exists() {
+        return Err(anyhow::anyhow!(
+            "The specified path does not exist: {:?}",
+            sender_target
+        ));
+    } else {
+        if sender_target.is_file() {
+            // It's a file.
+            println!("Sending file: {:?} to {}", sender_target, ip_addr);
+            file_type = "file";
+            sender_target.to_owned()
+        } else if sender_target.is_dir() {
+            // It's a directory.
+            // Get the directory name to create a uzip file with the same name in cache.
+            let dir_name = sender_target
+                .file_name()
+                .ok_or_else(|| anyhow::anyhow!("Failed to get directory name."))?
+                .to_string_lossy();
+            // Create a temporary uzip file in the cache directory.
+            let archive_path = PkgInfo::new()
+                .get_cache_dir()
+                .join(dir_name.to_string())
+                .with_extension("uzip");
+            let source_path = sender_target.to_path_buf();
+            zip_create_from_directory(&archive_path, &source_path)?;
+            log::debug!(
+                "Created archive from {:?} at {:?}",
+                source_path,
+                archive_path
+            );
+
+            println!("Sending directory: {:?} to {}", sender_target, ip_addr);
+
+            file_type = "directory";
+            archive_path.to_owned()
+        } else {
+            return Err(anyhow::anyhow!(
+                "The path is neither a file nor a directory."
+            ));
+        }
+    };
+
     let file_name = sender_target
         .file_name()
         .unwrap()
@@ -79,10 +126,12 @@ pub fn tcp_sender(sender_target: &Path, ip_addr: &str) -> anyhow::Result<()> {
         .unwrap()
         .to_string();
     // If the target is a directory (uzip), remove the .uzip extension for display
-    let format_name = match sender_target.is_dir() {
-        true => file_name.trim_end_matches(".uzip"),
-        false => &file_name,
+    let format_name = match file_type {
+        "directory" => file_name.trim_end_matches(".uzip"),
+        _ => &file_name,
     };
+    // ANCHOR_END: judge the sender_target is file or dir
+
     let mut file = File::open(&sender_target)?;
     let file_size = file.metadata()?.len();
 
@@ -138,6 +187,6 @@ pub fn tcp_sender(sender_target: &Path, ip_addr: &str) -> anyhow::Result<()> {
     pb.finish_with_message("Send complete");
     // ANCHOR_END: send file content
 
-    println!("Sent file: {} ({} bytes)", format_name, file_size);
+    println!("Sent {}: {} ({} bytes)", file_type, format_name, file_size);
     Ok(())
 }
